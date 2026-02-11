@@ -47,27 +47,27 @@
   </div>
 
 <script>
-  // Frame schedule
   const schedule = [
-    { end: 100, label: "Tyrode’s", next: 101 },
-    { end: 200, label: "Depolarization", next: 201 },
-    { end: 300, label: "Tyrode’s", next: 301 },
-    { end: 400, label: "FSK", next: 401 },
-    { end: 450, label: "Tyrode’s", next: 451 },
-    { end: 550, label: "Depolarization", next: 551 },
-    { end: 750, label: "Tyrode’s", next: 751 },
-    { end: 850, label: "NH4Cl", next: 851 },
+    { end: 100, label: "Tyrode’s" },
+    { end: 200, label: "Depolarization" },
+    { end: 300, label: "Tyrode’s" },
+    { end: 400, label: "FSK" },
+    { end: 450, label: "Tyrode’s" },
+    { end: 550, label: "Depolarization" },
+    { end: 750, label: "Tyrode’s" },
+    { end: 850, label: "NH4Cl" },
   ];
 
   let running = false;
-  let t0 = null;            // performance.now() at start
-  let pausedAt = null;      // elapsed ms when paused
-  let timer = null;
-  let lastWholeSecond = -1;
+  let t0 = null;
+  let pausedAt = null;
+  let lastStage = 0;
 
   function getStage(frame) {
-    for (const s of schedule) if (frame <= s.end) return s;
-    return { label: "Done", next: "-" };
+    for (let i = 0; i < schedule.length; i++) {
+      if (frame <= schedule[i].end) return i;
+    }
+    return schedule.length;
   }
 
   function getFps() {
@@ -75,22 +75,34 @@
     return (Number.isFinite(v) && v > 0) ? v : 1;
   }
 
-  function setStatus(text) {
-    document.getElementById("status").textContent = text;
-  }
-
-  function beep() {
-    // Simple beep without external files
+  function loudBeep(times = 3) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = "sine";
-    o.frequency.value = 880;
-    g.gain.value = 0.05;
-    o.connect(g);
-    g.connect(ctx.destination);
-    o.start();
-    setTimeout(() => { o.stop(); ctx.close(); }, 80);
+    let count = 0;
+
+    function singleBeep() {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "square";
+      osc.frequency.value = 1200;   // sharp high tone
+      gain.gain.value = 0.6;        // loud
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      setTimeout(() => {
+        osc.stop();
+        count++;
+        if (count < times) {
+          setTimeout(singleBeep, 200);
+        } else {
+          ctx.close();
+        }
+      }, 200);
+    }
+
+    singleBeep();
   }
 
   function tick() {
@@ -105,30 +117,29 @@
     document.getElementById("sec").textContent = sec;
     document.getElementById("frame").textContent = frame;
 
-    const st = getStage(frame);
-    document.getElementById("solution").textContent = st.label;
-    document.getElementById("next").textContent = st.next;
+    const stageIndex = getStage(frame);
 
-    // Beep once per new second
-    if (sec !== lastWholeSecond) {
-      lastWholeSecond = sec;
-      if (document.getElementById("beep").checked) beep();
-      if (navigator.vibrate) navigator.vibrate(30);
+    if (stageIndex < schedule.length) {
+      document.getElementById("solution").textContent = schedule[stageIndex].label;
+    } else {
+      document.getElementById("solution").textContent = "Done";
     }
 
-    // Smooth UI updates
+    // 🔴 BEEP ONLY when stage changes
+    if (stageIndex !== lastStage) {
+      loudBeep(4); // number of beeps
+      if (navigator.vibrate) navigator.vibrate([200,100,200,100,200]);
+      lastStage = stageIndex;
+    }
+
     requestAnimationFrame(tick);
   }
 
   function start() {
     if (running) return;
-
-    // If paused, resume from pausedAt
     const base = pausedAt ?? 0;
     t0 = performance.now() - base;
-
     running = true;
-    setStatus("running");
     requestAnimationFrame(tick);
   }
 
@@ -136,20 +147,16 @@
     if (!running) return;
     running = false;
     pausedAt = performance.now() - t0;
-    setStatus("paused");
   }
 
   function resetAll() {
     running = false;
     t0 = null;
     pausedAt = null;
-    lastWholeSecond = -1;
+    lastStage = 0;
     document.getElementById("sec").textContent = 0;
     document.getElementById("frame").textContent = 0;
-    const st = getStage(0);
-    document.getElementById("solution").textContent = st.label;
-    document.getElementById("next").textContent = st.next;
-    setStatus("stopped");
+    document.getElementById("solution").textContent = schedule[0].label;
   }
 </script>
 </body>
