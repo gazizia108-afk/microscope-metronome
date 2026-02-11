@@ -75,7 +75,7 @@
     return (Number.isFinite(v) && v > 0) ? v : 1;
   }
 
-  function loudBeep(times = 3) {
+  function loudBeep(times = 1) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     let count = 0;
 
@@ -84,7 +84,7 @@
       const gain = ctx.createGain();
 
       osc.type = "single";
-      osc.frequency.value = 600;   // sharp high tone
+      osc.frequency.value = 200;   // sharp high tone
       gain.gain.value = 0.2;        // loud
 
       osc.connect(gain);
